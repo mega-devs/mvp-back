@@ -1,0 +1,96 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.pyc
+.pytest_cache/
+
+# Virtual Environment - более специфичные правила
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+/venv
+/.venv
+/env
+/.env
+**/venv/
+**/.venv/
+**/env/
+**/.env/
+.python-version
+pyvenv.cfg
+/venv/
+/.venv/
+/ENV/
+/env/
+bin/
+lib/
+lib64/
+include/
+share/
+*.cfg
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Django (backend directory)
+backend/staticfiles/
+backend/media/
+backend/static/
+backend/*.log
+backend/local_settings.py
+backend/db.sqlite3
+backend/db.sqlite3-journal
+
+# Flask (back directory)
+back/instance/
+back/*.log
+back/tmp/
+back/__pycache__/
+back/config.local.py
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# Logs
+logs/
+*.log
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Project specific
+**/settings.local.json
+**/config.local.json
+**/tmp/*
+!**/tmp/.gitkeep
+
+# System
+.DS_Store
+Thumbs.db
+
+# Specific virtual environment paths
+**/lib/python*/site-packages/
+**/lib64
+**/pyvenv.cfg
+**/bin/
