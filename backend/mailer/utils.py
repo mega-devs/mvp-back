@@ -1,5 +1,6 @@
 import re
-from typing import Tuple
+from typing import Tuple, Optional
+from email.utils import formataddr
 
 def validate(data, params):
     """Validate that all required parameters are present in data"""
@@ -78,7 +79,12 @@ def clean_html(html: str) -> str:
                 
     return str(soup)
 
-def format_email_address(name: str, email: str) -> str:
-    """Format email address with name"""
-    from email.utils import formataddr
-    return formataddr((name, email)) 
+def format_email_address(name: Optional[str], email: str) -> str:
+    """Форматирование email адреса с именем"""
+    if name:
+        return formataddr((name, email))
+    return email
+
+def validate_required_fields(data: dict, required_fields: list) -> bool:
+    """Проверка наличия обязательных полей"""
+    return all(field in data for field in required_fields)

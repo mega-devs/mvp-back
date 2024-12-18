@@ -1,14 +1,31 @@
 {
-    "smtp_timeout": 45,
-    "smtp_attempts": 3,
-    "imap_timeout": 30,
-    "imap_attempts": 3,
-    "proxy_timeout": 10,
-    "domain_timeout": 30,
-    "sending_limit": 200,
-    "threads_number": 5,
-    "delay": 0.3,
-    "emails_per_smtp": 3,
-    "emails_per_session": 3,
-    "emails_to_validate": 3
+    "threads": 750,
+    "debug": false,
+    "timeout": 60,
+    "smtphost_max_attempts": 3,
+    "reverse_socks_list": false,
+    "recheck_real_ip": true,
+    "check_countries": [],
+    "country_check_discard": false,
+    "servers": [
+        "smtp.gmail.com:587",
+        "smtp.mail.yahoo.com:587",
+        "smtp.office365.com:587",
+        "smtp.aol.com:587"
+    ],
+    "random_smtphost": false,
+    "ip_apis": [
+        "http://ip-api.com/json",
+        "https://api.ipify.org?format=json"
+    ],
+    "abusix_api_keys": [],
+    "dnsbl_skiplist": [],
+    "max_workers": 20,
+    "dnsbls": [
+        "zen.spamhaus.org",
+        "bl.spamcop.net",
+        "dnsbl.sorbs.net",
+        "spam.dnsbl.sorbs.net"
+    ],
+    "fetch_url": []
 } 

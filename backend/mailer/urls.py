@@ -1,30 +1,28 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
 
 urlpatterns = [
     # Authentication
-    path('login', views.LoginView.as_view(), name='login'),
+    path('authentication/register/', views.RegisterView.as_view(), name='register'),
+    path('authentication/login/', views.LoginView.as_view(), name='login'),
     
     # Sessions
-    path('sessions', views.SessionListView.as_view(), name='session-list'),
-    path('sessions/<str:name>', views.SessionDetailView.as_view(), name='session-detail'),
+    path('sessions/', views.SessionListView.as_view(), name='session-list'),
+    path('sessions/<str:name>/', views.SessionDetailView.as_view(), name='session-detail'),
     
-    # Materials
-    path('materials/<str:type>/<str:session>', 
-         views.MaterialListView.as_view(), name='material-list'),
-    
-    # Templates
-    path('templates', views.TemplateView.as_view(), name='template-create'),
-    path('templates/<int:pk>', views.TemplateView.as_view(), name='template-update'),
-    
-    # Logs
-    path('logs/<str:session>', views.LogListView.as_view(), name='log-list'),
-    path('logs/<str:session>/<str:type>', 
-         views.LogListView.as_view(), name='log-list-filtered'),
-    
-    # Checks
-    path('check/<str:type>', views.CheckView.as_view(), name='check'),
-    
-    # Mailing
-    path('mailing', views.MailingView.as_view(), name='mailing'),
+    # SMTP endpoints
+    path('smtp/', views.SMTPListCreateView.as_view(), name='smtp-list'),
+    path('smtp/<int:pk>/', views.SMTPDetailView.as_view(), name='smtp-detail'),
+    path('smtp/<int:pk>/check/', views.SMTPCheckView.as_view(), name='smtp-check'),
+
+    # Proxy endpoints
+    path('proxy/', views.ProxyListCreateView.as_view(), name='proxy-list'),
+    path('proxy/<int:pk>/', views.ProxyDetailView.as_view(), name='proxy-detail'),
+    path('proxy/<int:pk>/check/', views.ProxyCheckView.as_view(), name='proxy-check'),
+
+    # Monitoring endpoints
+    path('monitoring/status/', views.SystemStatusView.as_view(), name='system-status'),
+    path('monitoring/metrics/', views.MetricsView.as_view(), name='metrics'),
+
+    # ... остальные пути ...
 ] 

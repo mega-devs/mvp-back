@@ -6,6 +6,14 @@ class Base(models.Model):
     last = models.CharField(max_length=255, null=True)
     email = models.CharField(max_length=255, null=True)
     session = models.CharField(max_length=255, null=True)
+    status = models.CharField(max_length=255, null=True, default='new')
+
+    class Meta:
+        db_table = 'bases'
+        indexes = [
+            models.Index(fields=['session', 'email']),
+            models.Index(fields=['status']),
+        ]
 
 class Domain(models.Model):
     url = models.TextField(null=True)
@@ -25,8 +33,15 @@ class Material(models.Model):
 class Proxy(models.Model):
     ip = models.CharField(max_length=255, null=True)
     port = models.CharField(max_length=255, null=True)
-    status = models.CharField(max_length=255, null=True)
+    status = models.CharField(max_length=255, null=True, default='new')
     session = models.CharField(max_length=255, null=True)
+
+    class Meta:
+        db_table = 'proxy'
+        indexes = [
+            models.Index(fields=['session', 'ip']),
+            models.Index(fields=['status']),
+        ]
 
 class Session(models.Model):
     name = models.CharField(max_length=255, null=True)
@@ -36,8 +51,15 @@ class SMTP(models.Model):
     port = models.CharField(max_length=255, null=True)
     email = models.CharField(max_length=255, null=True)
     password = models.CharField(max_length=255, null=True)
-    status = models.CharField(max_length=255, null=True)
+    status = models.CharField(max_length=255, null=True, default='new')
     session = models.CharField(max_length=255, null=True)
+
+    class Meta:
+        db_table = 'smtp'
+        indexes = [
+            models.Index(fields=['session', 'email']),
+            models.Index(fields=['status']),
+        ]
 
 class Template(models.Model):
     maintmp = models.IntegerField(null=True)
@@ -79,3 +101,19 @@ class Setting(models.Model):
 
     class Meta:
         unique_together = ('session', 'type') 
+
+class IPBlacklist(models.Model):
+    ip = models.CharField(max_length=45, unique=True)
+    reason = models.TextField()
+    attempts = models.IntegerField(default=0)
+    blocked_until = models.DateTimeField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ip_blacklist'
+        verbose_name = 'IP Blacklist'
+        verbose_name_plural = 'IP Blacklist'
+
+    def __str__(self):
+        return f"{self.ip} ({self.reason})" 

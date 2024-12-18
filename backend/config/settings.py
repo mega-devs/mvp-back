@@ -1,5 +1,7 @@
 from pathlib import Path
 import os
+import json
+from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -20,18 +22,29 @@ INSTALLED_APPS = [
     'corsheaders',
     'channels',
     'mailer',
+    'drf_spectacular',
+    'drf_spectacular_sidecar',
+    'django_celery_results',
+    'django_celery_beat',
+    'django_prometheus',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.cache.UpdateCacheMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'django.middleware.cache.FetchFromCacheMiddleware',
+    'django.middleware.gzip.GZipMiddleware',
+    'csp.middleware.CSPMiddleware',
+    'mailer.middleware.auth.TokenAuthMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django_prometheus.middleware.PrometheusBeforeMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -88,18 +101,47 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+WHITENOISE_MAX_AGE = 31536000  # 1 year
+WHITENOISE_MANIFEST_STRICT = False
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_COMPRESS = True
+WHITENOISE_MIMETYPES = {
+    'application/javascript': 'text/javascript',
+    'text/css': 'text/css',
+}
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
 
-ADMIN_MEDIA_PREFIX = '/static/admin/'
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+]
 
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+ADMIN_MEDIA_PREFIX = '/static/admin/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
 
 # Logging configuration
 LOGGING = {
@@ -110,39 +152,305 @@ LOGGING = {
             'format': '{asctime} - {name} - {levelname} - {message}',
             'style': '{',
         },
+        'audit': {
+            'format': '{message}',
+            'style': '{',
+        },
     },
     'handlers': {
-        'file': {
-            'class': 'logging.handlers.TimedRotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'app.log'),
-            'when': 'midnight',
-            'interval': 1,
-            'backupCount': 7,
+        'console': {
+            'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
     },
     'loggers': {
         'mailer': {
-            'handlers': ['file'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': True,
+        },
+        'audit': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
         },
     },
 }
 
-# Create logs directory if it doesn't exist
-LOGS_DIR = os.path.join(BASE_DIR, 'logs')
-if not os.path.exists(LOGS_DIR):
-    os.makedirs(LOGS_DIR) 
-
 # Настройки Channels
 ASGI_APPLICATION = 'config.asgi.application'
 CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer'
-    }
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("redis", 6379)],
+            "capacity": 1500,
+            "expiry": 10,
+        },
+    },
 }
 
 # Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Добавим настройки DRF и Spectacular
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.FormParser',
+        'rest_framework.parsers.MultiPartParser',
+    ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'mailer.throttling.CustomRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'custom': '1000/day',
+        'auth': '5/min',
+        'mailing': '2/min',
+        'check': '10/min',
+        'upload': '20/min',
+    }
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Mailer API',
+    'DESCRIPTION': '''
+    API для управления рассылками email.
+    ''',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': True,
+    'SWAGGER_UI_DIST': 'SIDECAR',
+    'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
+    'REDOC_DIST': 'SIDECAR',
+    'SERVE_PUBLIC': True,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': True,
+    },
+    'TAGS': [
+        {
+            'name': 'smtp',
+            'description': 'Операции с SMTP серверами'
+        },
+        {
+            'name': 'proxy',
+            'description': 'Операции с прокси серверами'
+        },
+        {
+            'name': 'monitoring',
+            'description': 'Мониторинг и метрики'
+        }
+    ],
+    'TAG_ORDERING': ['smtp', 'proxy', 'monitoring'],
+    'ENABLE_DJANGO_DEPLOY_CHECK': False,
+    'SCHEMA_PATH_PREFIX': '/api/',
+    'SCHEMA_COERCE_PATH_PK_SUFFIX': True,
+    'SCHEMA_INCLUDE_PATTERNS': [
+        r'/api/smtp/.*',
+        r'/api/proxy/.*',
+        r'/api/monitoring/.*',
+    ],
+}
+
+# Загрузка настроек из settings.json
+with open(os.path.join(BASE_DIR, 'settings.json')) as f:
+    MAILER_SETTINGS = json.load(f)
+
+# Настройки для рассылки
+SMTP_SETTINGS = {
+    'timeout': MAILER_SETTINGS.get('timeout', 60),
+    'max_attempts': MAILER_SETTINGS.get('smtphost_max_attempts', 3),
+    'servers': MAILER_SETTINGS.get('servers', []),
+    'random_host': MAILER_SETTINGS.get('random_smtphost', False),
+}
+
+# Настройки для проверки прокси
+PROXY_SETTINGS = {
+    'reverse_socks': MAILER_SETTINGS.get('reverse_socks_list', False),
+    'recheck_ip': MAILER_SETTINGS.get('recheck_real_ip', True),
+    'ip_apis': MAILER_SETTINGS.get('ip_apis', []),
+}
+
+# Настройки для DNS
+DNS_SETTINGS = {
+    'dnsbls': MAILER_SETTINGS.get('dnsbls', []),
+    'skiplist': MAILER_SETTINGS.get('dnsbl_skiplist', []),
+}
+
+# Celery Configuration
+CELERY_BROKER_URL = 'redis://redis:6379/0'
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_CACHE_BACKEND = 'django-cache'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60
+
+# Celery Beat Configuration
+from .celerybeat_schedule import CELERYBEAT_SCHEDULE
+CELERY_BEAT_SCHEDULE = {
+    'cleanup-temp-files': {
+        'task': 'mailer.tasks.cleanup_temp_files',
+        'schedule': timedelta(hours=1),
+    },
+    'archive-old-logs': {
+        'task': 'mailer.tasks.archive_old_logs',
+        'schedule': timedelta(days=1),
+    },
+}
+
+# Celery Logging
+CELERYD_LOG_FILE = "/var/log/celery/worker.log"
+CELERYBEAT_LOG_FILE = "/var/log/celery/beat.log"
+
+# Sentry Configuration
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.redis import RedisIntegration
+
+if not DEBUG:  # Включаем Sentry только в production
+    sentry_sdk.init(
+        dsn="https://your-dsn@sentry.io/your-project",
+        integrations=[
+            DjangoIntegration(),
+            RedisIntegration(),
+            CeleryIntegration(),
+        ],
+        traces_sample_rate=1.0,
+        send_default_pii=True,
+        environment='development',
+    )
+
+# Rate Limiting Settings
+RATELIMIT_ENABLE = True
+RATELIMIT_USE_CACHE = 'default'
+RATELIMIT_FAIL_OPEN = False  # Блокировать при проблемах с кэшем
+
+# Redis Configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://redis:6379/1',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'CONNECTION_POOL_CLASS': 'redis.BlockingConnectionPool',
+            'CONNECTION_POOL_CLASS_KWARGS': {
+                'max_connections': 50,
+                'timeout': 20,
+            },
+            'MAX_CONNECTIONS': 1000,
+            'PICKLE_VERSION': -1,
+        }
+    },
+    'sessions': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://redis:6379/2',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
+    }
+}
+
+# Cache time to live is 15 minutes
+CACHE_TTL = 60 * 15
+
+# Cache ops configuration
+CACHEOPS_REDIS = 'redis://redis:6379/3'
+CACHEOPS_DEFAULTS = {
+    'timeout': 60*15  # 15 minutes
+}
+
+CACHEOPS = {
+    'mailer.SMTP': {'ops': 'all', 'timeout': 60*15},
+    'mailer.Proxy': {'ops': 'all', 'timeout': 60*15},
+    'mailer.Template': {'ops': 'all', 'timeout': 60*60},
+    'mailer.Base': {'ops': 'all', 'timeout': 60*60},
+    'mailer.Session': {'ops': 'all', 'timeout': 60*60*24},
+    'mailer.Setting': {'ops': 'all', 'timeout': 60*60*24},
+}
+
+# WebSocket settings
+WEBSOCKET_SETTINGS = {
+    'ping_interval': 30,  # Интервал ping/pong в секундах
+    'connection_timeout': 60,  # Таймаут подключения
+    'max_connections': 1000,  # Максимальное количество подключений
+    'reconnect_attempts': 3,  # Количество попыток переподключения
+}
+
+# Security Settings
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+SECURE_HSTS_SECONDS = 31536000
+
+# Content Security Policy
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")
+CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "'unsafe-eval'")
+CSP_IMG_SRC = ("'self'", "data:", "https:")
+CSP_FONT_SRC = ("'self'", "https:", "data:")
+
+# CSRF Settings
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_HTTPONLY = True
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+]
+
+# Session Settings
+SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+# XSS Protection
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
+X_FRAME_OPTIONS = 'DENY'
+
+# Debug Toolbar Settings
+if DEBUG:
+    pass
+
+# Query Count Settings
+QUERYCOUNT = {
+    'THRESHOLDS': {
+        'MEDIUM': 50,
+        'HIGH': 200,
+        'MIN_TIME_TO_LOG': 0,
+        'MIN_QUERY_COUNT_TO_LOG': 50
+    },
+    'IGNORE_REQUEST_PATTERNS': [],
+    'IGNORE_SQL_PATTERNS': []
+}
+
+# Compression Settings
+COMPRESS_ENABLED = True
+COMPRESS_OFFLINE = True
+COMPRESS_CSS_FILTERS = ['compressor.filters.css_default.CssAbsoluteFilter']
+COMPRESS_JS_FILTERS = ['compressor.filters.jsmin.JSMinFilter']
+
+# Audit Logging Settings
+AUDIT_LOGGING = {
+    'ENABLED': True,
+    'EXCLUDED_PATHS': ['/static/', '/media/'],
+    'LOG_PATH': os.path.join(BASE_DIR, 'logs', 'audit.log'),
+    'RETENTION_DAYS': 30,
+}
+
+# Cache settings
+CACHE_MIDDLEWARE_SECONDS = 31536000  # 1 year for static files
+CACHE_MIDDLEWARE_KEY_PREFIX = 'mailer'

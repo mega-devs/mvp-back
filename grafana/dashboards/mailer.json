@@ -1,0 +1,45 @@
+{
+  "dashboard": {
+    "title": "Mailer Metrics",
+    "panels": [
+      {
+        "title": "SMTP Operations",
+        "type": "graph",
+        "metrics": [
+          "rate(smtp_success_total[5m])",
+          "rate(smtp_errors_total[5m])"
+        ]
+      },
+      {
+        "title": "SMTP Latency",
+        "type": "graph",
+        "metrics": [
+          "histogram_quantile(0.95, rate(smtp_latency_seconds_bucket[5m]))"
+        ]
+      },
+      {
+        "title": "Proxy Operations",
+        "type": "graph",
+        "metrics": [
+          "rate(proxy_success_total[5m])",
+          "rate(proxy_errors_total[5m])"
+        ]
+      },
+      {
+        "title": "Email Sending",
+        "type": "graph",
+        "metrics": [
+          "rate(emails_sent_total[5m])",
+          "rate(emails_failed_total[5m])"
+        ]
+      },
+      {
+        "title": "Active Mailings",
+        "type": "gauge",
+        "metrics": [
+          "active_mailings"
+        ]
+      }
+    ]
+  }
+} 
