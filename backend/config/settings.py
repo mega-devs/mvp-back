@@ -22,8 +22,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'channels',
     'mailer',
-    'drf_spectacular',
-    'drf_spectacular_sidecar',
+    'drf_yasg',
     'django_celery_results',
     'django_celery_beat',
     'django_prometheus',
@@ -33,9 +32,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.cache.UpdateCacheMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.cache.FetchFromCacheMiddleware',
     'django.middleware.gzip.GZipMiddleware',
     'csp.middleware.CSPMiddleware',
     'mailer.middleware.auth.TokenAuthMiddleware',
@@ -76,6 +73,9 @@ DATABASES = {
         'PASSWORD': '246808642aA@',
         'HOST': 'db',
         'PORT': '3306',
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+        }
     }
 }
 
@@ -196,13 +196,13 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Добавим настройки DRF и Spectacular
 REST_FRAMEWORK = {
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
         'rest_framework.parsers.FormParser',
@@ -220,46 +220,17 @@ REST_FRAMEWORK = {
     }
 }
 
-SPECTACULAR_SETTINGS = {
-    'TITLE': 'Mailer API',
-    'DESCRIPTION': '''
-    API для управления рассылками email.
-    ''',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': True,
-    'SWAGGER_UI_DIST': 'SIDECAR',
-    'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
-    'REDOC_DIST': 'SIDECAR',
-    'SERVE_PUBLIC': True,
-    'COMPONENT_SPLIT_REQUEST': True,
-    'SWAGGER_UI_SETTINGS': {
-        'deepLinking': True,
-        'persistAuthorization': True,
-        'displayOperationId': True,
-    },
-    'TAGS': [
-        {
-            'name': 'smtp',
-            'description': 'Операции с SMTP серверами'
-        },
-        {
-            'name': 'proxy',
-            'description': 'Операции с прокси серверами'
-        },
-        {
-            'name': 'monitoring',
-            'description': 'Мониторинг и метрики'
+SWAGGER_SETTINGS = {
+    'SECURITY_DEFINITIONS': {
+        'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header'
         }
-    ],
-    'TAG_ORDERING': ['smtp', 'proxy', 'monitoring'],
-    'ENABLE_DJANGO_DEPLOY_CHECK': False,
-    'SCHEMA_PATH_PREFIX': '/api/',
-    'SCHEMA_COERCE_PATH_PK_SUFFIX': True,
-    'SCHEMA_INCLUDE_PATTERNS': [
-        r'/api/smtp/.*',
-        r'/api/proxy/.*',
-        r'/api/monitoring/.*',
-    ],
+    },
+    'USE_SESSION_AUTH': False,
+    'JSON_EDITOR': True,
+    'SUPPORTED_SUBMIT_METHODS': ['get', 'post', 'put', 'delete', 'patch'],
 }
 
 # Загрузка настроек из settings.json
@@ -341,26 +312,8 @@ RATELIMIT_FAIL_OPEN = False  # Блокировать при проблемах 
 
 # Redis Configuration
 CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://redis:6379/1',
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'CONNECTION_POOL_CLASS': 'redis.BlockingConnectionPool',
-            'CONNECTION_POOL_CLASS_KWARGS': {
-                'max_connections': 50,
-                'timeout': 20,
-            },
-            'MAX_CONNECTIONS': 1000,
-            'PICKLE_VERSION': -1,
-        }
-    },
-    'sessions': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://redis:6379/2',
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
+    "default": {
+        "BACKEND": "django.core.cache.backends.dummy.DummyCache",
     }
 }
 
@@ -374,7 +327,6 @@ CACHEOPS_DEFAULTS = {
 }
 
 CACHEOPS = {
-    'mailer.SMTP': {'ops': 'all', 'timeout': 60*15},
     'mailer.Proxy': {'ops': 'all', 'timeout': 60*15},
     'mailer.Template': {'ops': 'all', 'timeout': 60*60},
     'mailer.Base': {'ops': 'all', 'timeout': 60*60},
@@ -454,3 +406,17 @@ AUDIT_LOGGING = {
 # Cache settings
 CACHE_MIDDLEWARE_SECONDS = 31536000  # 1 year for static files
 CACHE_MIDDLEWARE_KEY_PREFIX = 'mailer'
+
+# JWT Settings
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+}

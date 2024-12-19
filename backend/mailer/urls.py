@@ -1,18 +1,19 @@
-from django.urls import path, include
+from django.urls import path
 from . import views
+from rest_framework_simplejwt.views import TokenRefreshView
 
 urlpatterns = [
     # Authentication
     path('authentication/register/', views.RegisterView.as_view(), name='register'),
     path('authentication/login/', views.LoginView.as_view(), name='login'),
-    
-    # Sessions
-    path('sessions/', views.SessionListView.as_view(), name='session-list'),
-    path('sessions/<str:name>/', views.SessionDetailView.as_view(), name='session-detail'),
+    path('authentication/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     
     # SMTP endpoints
-    path('smtp/', views.SMTPListCreateView.as_view(), name='smtp-list'),
-    path('smtp/<int:pk>/', views.SMTPDetailView.as_view(), name='smtp-detail'),
+    path('smtp/', views.SMTPListView.as_view()),
+    path('smtp/create/', views.SMTPCreateView.as_view()),
+    path('smtp/<int:pk>/', views.SMTPRetrieveView.as_view()),
+    path('smtp/<int:pk>/update/', views.SMTPUpdateView.as_view()),
+    path('smtp/<int:pk>/delete/', views.SMTPDeleteView.as_view()),
     path('smtp/<int:pk>/check/', views.SMTPCheckView.as_view(), name='smtp-check'),
 
     # Proxy endpoints
@@ -24,5 +25,7 @@ urlpatterns = [
     path('monitoring/status/', views.SystemStatusView.as_view(), name='system-status'),
     path('monitoring/metrics/', views.MetricsView.as_view(), name='metrics'),
 
-    # ... остальные пути ...
+    # Sessions (если нужны)
+    path('sessions/', views.SessionListView.as_view(), name='session-list'),
+    path('sessions/<str:name>/', views.SessionDetailView.as_view(), name='session-detail'),
 ] 

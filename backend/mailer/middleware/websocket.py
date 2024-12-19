@@ -1,7 +1,11 @@
 from channels.middleware import BaseMiddleware
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
-from ..models import Token
+from rest_framework_simplejwt.tokens import UntypedToken
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from jwt import decode as jwt_decode
+from django.conf import settings
+from django.contrib.auth import get_user_model
 import logging
 
 logger = logging.getLogger('mailer')
@@ -14,16 +18,26 @@ class WebSocketAuthMiddleware(BaseMiddleware):
         token = query_params.get('token')
 
         if token:
-            scope['user'] = await self.get_user_from_token(token)
+            try:
+                # Валидация JWT токена
+                UntypedToken(token)
+                
+                # Декодируем токен
+                decoded_data = jwt_decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+                user = await self.get_user(decoded_data['user_id'])
+                scope['user'] = user
+            except (InvalidToken, TokenError) as e:
+                logger.error(f"Invalid token: {str(e)}")
+                scope['user'] = AnonymousUser()
         else:
             scope['user'] = AnonymousUser()
 
         return await super().__call__(scope, receive, send)
 
     @database_sync_to_async
-    def get_user_from_token(self, token):
+    def get_user(self, user_id):
+        User = get_user_model()
         try:
-            token_obj = Token.objects.select_related('user').get(token=token)
-            return token_obj.user
-        except Token.DoesNotExist:
+            return User.objects.get(id=user_id)
+        except User.DoesNotExist:
             return AnonymousUser() 

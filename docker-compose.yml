@@ -11,7 +11,8 @@ services:
     ports:
       - "3306:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p246808642aA@"]
+      interval: 5s
       timeout: 5s
       retries: 10
 
@@ -27,7 +28,6 @@ services:
 
   web:
     build: ./backend
-    command: daphne -b 0.0.0.0 -p 8000 config.asgi:application
     volumes:
       - ./backend:/app
       - static_volume:/app/staticfiles
@@ -38,16 +38,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings
-      - PYTHONUNBUFFERED=1
-      - DJANGO_SUPERUSER_USERNAME=admin
-      - DJANGO_SUPERUSER_PASSWORD=admin
-      - DJANGO_SUPERUSER_EMAIL=admin@example.com
-      - PYTHONPATH=/app
-      - DJANGO_STATIC_ROOT=/app/staticfiles
+      - DATABASE_URL=mysql://root:246808642aA@@db:3306/mailer
 
   celery_worker:
     build: ./backend

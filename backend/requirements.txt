@@ -14,7 +14,7 @@ python-engineio==4.9.1
 PySocks==1.7.1
 beautifulsoup4==4.12.2
 whitenoise==6.6.0
-drf-spectacular==0.27.0
+drf-yasg==1.21.7
 django-secure==1.0.2
 python-socks==2.3.0
 channels_redis==4.1.0
@@ -42,7 +42,8 @@ django-silk==5.0.4
 django-compression-middleware==0.5.0
 django-querycount==0.8.3
 django-storages==1.14.2
-drf-yasg==1.21.7
 drf-spectacular-sidecar==2024.2.1
 markdown==3.5.2
+djangorestframework-simplejwt==5.3.1
+PyJWT==2.8.0
   

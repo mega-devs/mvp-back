@@ -1,6 +1,9 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import *
+import logging
+
+logger = logging.getLogger(__name__)
 
 class BaseSerializer(serializers.ModelSerializer):
     class Meta:
@@ -23,17 +26,15 @@ class SettingSerializer(BaseSerializer):
 class SMTPSerializer(serializers.ModelSerializer):
     class Meta:
         model = SMTP
-        fields = ['id', 'server', 'port', 'email', 'password', 'status']
+        fields = ['id', 'server', 'port', 'email', 'password', 'status', 'session']
         extra_kwargs = {
-            'server': {'help_text': 'SMTP сервер (например, smtp.gmail.com)'},
-            'port': {'help_text': 'Порт SMTP сервера (например, 587)'},
-            'email': {'help_text': 'Email адрес для аутентификации'},
-            'password': {
-                'help_text': 'Пароль или API ключ',
-                'write_only': True
-            },
-            'status': {'help_text': 'Статус проверки (valid/invalid)'},
+            'password': {'write_only': True}
         }
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        logger.info(f"Serializing SMTP instance: {instance.id}")
+        return data
 
 class IMAPSerializer(BaseSerializer):
     class Meta(BaseSerializer.Meta):
@@ -59,22 +60,12 @@ class LogSerializer(BaseSerializer):
     class Meta(BaseSerializer.Meta):
         model = Log
 
-class TokenSerializer(BaseSerializer):
-    class Meta(BaseSerializer.Meta):
-        model = Token
-
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(help_text="Имя пользователя")
     password = serializers.CharField(help_text="Пароль", style={'input_type': 'password'})
 
     class Meta:
         ref_name = 'Login'
-
-class TokenResponseSerializer(serializers.Serializer):
-    token = serializers.CharField(help_text="Токен доступа")
-
-    class Meta:
-        ref_name = 'TokenResponse'
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, style={'input_type': 'password'})

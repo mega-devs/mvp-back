@@ -56,10 +56,9 @@ class SMTP(models.Model):
 
     class Meta:
         db_table = 'smtp'
-        indexes = [
-            models.Index(fields=['session', 'email']),
-            models.Index(fields=['status']),
-        ]
+
+    def __str__(self):
+        return f"{self.server} ({self.email})"
 
 class Template(models.Model):
     maintmp = models.IntegerField(null=True)
@@ -74,10 +73,6 @@ class Temp(models.Model):
     tempName = models.CharField(max_length=255, null=True)
     status = models.CharField(max_length=255, null=True)
     session = models.CharField(max_length=255, null=True)
-
-class Token(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    token = models.CharField(max_length=255, null=True)
 
 class Log(models.Model):
     text = models.TextField(null=True)

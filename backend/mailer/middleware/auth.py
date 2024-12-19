@@ -1,40 +1,45 @@
 from django.http import JsonResponse
-from ..models import Token
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 class TokenAuthMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
+        self.jwt_auth = JWTAuthentication()
         self.public_paths = [
             '/api/authentication/login/',
             '/api/authentication/register/',
+            '/api/authentication/refresh/',
             '/admin/',
             '/api/docs/',
             '/api/schema/',
-            '/metrics',
-            '/api/metrics/',
+            '/metrics/',
             '/api/redoc/',
+            '/api/swagger/',
+            '/swagger/',
             '/',
         ]
 
     def __call__(self, request):
-        # Проверяем, является ли путь публичным
         if any(request.path.startswith(path) for path in self.public_paths):
             return self.get_response(request)
 
-        # Для всех остальных путей проверяем токен
-        token = request.headers.get('Authorization')
-        if not token:
-            return JsonResponse(
-                {'error': 'Token is required'}, 
-                status=401
+        try:
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return JsonResponse(
+                    {'error': 'Authorization header is required'}, 
+                    status=401
+                )
+
+            validated_token = self.jwt_auth.get_validated_token(
+                self.jwt_auth.get_raw_token(auth_header)
             )
-        
-        token_obj = Token.objects.filter(token=token).first()
-        if not token_obj:
-            return JsonResponse(
-                {'error': 'Invalid token'}, 
-                status=401
-            )
+            request.user = self.jwt_auth.get_user(validated_token)
             
-        request.user = token_obj.user
+        except Exception as e:
+            return JsonResponse(
+                {'error': str(e)}, 
+                status=401
+            )
+
         return self.get_response(request) 
