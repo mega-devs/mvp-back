@@ -1,3 +1,5 @@
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -131,6 +133,7 @@ class RegisterView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        session = self.save(serializer)
         
         user = serializer.save()
         token = secrets.token_hex(8)
@@ -168,6 +171,8 @@ class SessionListView(generics.ListCreateAPIView):
         responses={201: SessionSerializer},
     )
     def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         session = self.save(serializer)
         
         # Load settings from json file

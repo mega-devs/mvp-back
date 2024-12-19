@@ -4,6 +4,10 @@ import logging
 
 logger = logging.getLogger('mailer')
 
+def make_key(prefix, id):
+    """Создание ключа кэша"""
+    return f"{prefix}:{id}"
+
 def cache_result(cache_key, timeout=None):
     """
     Декоратор для кэширования результатов функции
