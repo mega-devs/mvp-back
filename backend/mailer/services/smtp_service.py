@@ -144,4 +144,71 @@ class SMTPService:
         except Exception as e:
             logger.error(f"Failed to send email: {str(e)}")
             return False
-  
+
+class DNSUtils:
+    @staticmethod
+    def check_mx_record(domain: str) -> Tuple[bool, Optional[List[str]]]:
+        """
+        Check the MX records for the given domain.
+
+        Args:
+            domain (str): The domain to check.
+
+        Returns:
+            Tuple[bool, Optional[List[str]]]: A tuple where the first value indicates success,
+            and the second value contains a list of MX records or None on failure.
+        """
+        try:
+            mx_records = dns.resolver.resolve(domain, 'MX')
+            return True, [str(mx.exchange) for mx in mx_records]
+        except Exception as e:
+            logger.error(f"MX check failed for {domain}: {str(e)}")
+            return False, None
+
+    @staticmethod
+    def check_spf_record(domain: str) -> Tuple[bool, Optional[str]]:
+        """
+        Check the SPF record for the given domain.
+
+        Args:
+            domain (str): The domain to check.
+
+        Returns:
+            Tuple[bool, Optional[str]]: A tuple where the first value indicates success,
+            and the second contains the SPF record string or None on failure.
+        """
+        try:
+            txt_records = dns.resolver.resolve(domain, 'TXT')
+            for record in txt_records:
+                for string in record.strings:
+                    if string.startswith(b'v=spf1'):
+                        return True, string.decode()
+            return False, None
+        except Exception as e:
+            logger.error(f"SPF check failed for {domain}: {str(e)}")
+            return False, None
+
+    @staticmethod
+    def check_dkim_record(selector: str, domain: str) -> Tuple[bool, Optional[str]]:
+        """
+        Check the DKIM record for the given domain using the specified selector.
+
+        Args:
+            selector (str): The DKIM selector (e.g., 'default').
+            domain (str): The domain to check.
+
+        Returns:
+            Tuple[bool, Optional[str]]: A tuple where the first value indicates success,
+            and the second contains the DKIM record string or None on failure.
+        """
+        try:
+            dkim_domain = f"{selector}._domainkey.{domain}"
+            txt_records = dns.resolver.resolve(dkim_domain, 'TXT')
+            for record in txt_records:
+                for string in record.strings:
+                    if string.startswith(b'v=DKIM1'):
+                        return True, string.decode()
+            return False, None
+        except Exception as e:
+            logger.error(f"DKIM check failed for {domain}: {str(e)}")
+            return False, None
