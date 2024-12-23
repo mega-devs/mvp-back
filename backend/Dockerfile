@@ -2,57 +2,35 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Установка системных зависимостей
-RUN apt-get update && apt-get install -y \
+# Установка только необходимых системных зависимостей
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     default-libmysqlclient-dev \
     pkg-config \
-    libmagic1 \
+    netcat-traditional \
     dos2unix \
+    libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Копирование requirements.txt
+# Копируем сначала requirements.txt для кэширования слоя с зависимостей
 COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Обновление pip и установка зависимостей
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Создаем пользователя для приложения
+RUN useradd -m appuser && \
+    chown -R appuser:appuser /app
 
-# Создание структуры директорий
-RUN mkdir -p /app/mailer/middleware
+# Копируем entrypoint и устанавливаем права
+COPY --chown=appuser:appuser entrypoint.sh .
+RUN dos2unix entrypoint.sh && \
+    chmod +x entrypoint.sh
 
-# Копирование проекта
-COPY . .
+# Копируем остальные файлы проекта
+COPY --chown=appuser:appuser . .
 
-# Делаем entrypoint.sh исполняемым
-RUN chmod +x /app/entrypoint.sh && \
-    dos2unix /app/entrypoint.sh
-
-# Сбор статических файлов
-RUN python manage.py collectstatic --noinput
-
-# Проверка структуры файлов
-RUN echo "Listing files in /app/mailer:" && \
-    ls -la /app/mailer/ && \
-    echo "Content of middleware/auth.py:" && \
-    cat /app/mailer/middleware/auth.py
-
-# Установка прав на middleware
-RUN chmod -R 755 /app/mailer/middleware \
-    && chown -R root:root /app/mailer/middleware \
-    && ls -la /app/mailer/middleware/
-
-# Создание необходимых директорий
-RUN mkdir -p /app/staticfiles /app/media /var/log/celery
-RUN mkdir -p /app/logs && chmod 777 /app/logs
-
-# Установка прав на Python-пакеты
-RUN find /app -type d -exec chmod 755 {} \; \
-    && find /app -type f -exec chmod 644 {} \;
+# Переключаемся на пользователя приложения
+USER appuser
 
 EXPOSE 8000
 
-# Используем CMD
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-CMD ["/bin/bash", "/entrypoint.sh"]
+ENTRYPOINT ["/bin/bash", "/app/entrypoint.sh"]

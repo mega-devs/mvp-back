@@ -8,50 +8,50 @@ services:
       MYSQL_ROOT_PASSWORD: 246808642aA@
     volumes:
       - mysql_data:/var/lib/mysql
-    ports:
-      - "3306:3306"
+    command: --default-authentication-plugin=mysql_native_password
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p246808642aA@"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 5
 
   redis:
-    image: redis:latest
-    ports:
-      - "6379:6379"
+    image: redis:alpine
+    volumes:
+      - redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
-      timeout: 3s
+      timeout: 5s
       retries: 5
 
   web:
     build: ./backend
     volumes:
       - ./backend:/app
-      - static_volume:/app/staticfiles
+      - static_volume:/app/static
       - media_volume:/app/media
       - log_volume:/app/logs
-    ports:
-      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings
-      - DATABASE_URL=mysql://root:246808642aA@@db:3306/mailer
+      - DEBUG=1
+    ports:
+      - "8000:8000"
+    command: python manage.py runserver 0.0.0.0:8000
 
-  celery_worker:
+  celery:
     build: ./backend
     command: celery -A config worker -l INFO
     volumes:
       - ./backend:/app
     depends_on:
-      - web
       - redis
-    environment:
-      - DJANGO_SETTINGS_MODULE=config.settings
+      - web
 
   celery_beat:
     build: ./backend
@@ -59,43 +59,12 @@ services:
     volumes:
       - ./backend:/app
     depends_on:
-      - web
       - redis
-    environment:
-      - DJANGO_SETTINGS_MODULE=config.settings
-
-  prometheus:
-    image: prom/prometheus:v2.45.0
-    volumes:
-      - ./prometheus:/etc/prometheus
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
-    ports:
-      - "9090:9090"
-    restart: always
-
-  grafana:
-    image: grafana/grafana:10.0.3
-    depends_on:
-      - prometheus
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-    restart: always
+      - web
 
 volumes:
   mysql_data:
+  redis:
   static_volume:
   media_volume:
   log_volume:
-  redis:
-  prometheus_data:
-  grafana_data:
