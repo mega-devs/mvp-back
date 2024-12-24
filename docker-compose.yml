@@ -28,10 +28,10 @@ services:
   web:
     build: ./backend
     volumes:
-      - ./backend:/app
-      - static_volume:/app/static
-      - media_volume:/app/media
-      - log_volume:/app/logs
+      - ./backend/src:/app/src
+      - ./backend/static:/app/static
+      - ./backend/media:/app/media
+      - ./backend/logs:/app/logs
     depends_on:
       db:
         condition: service_healthy

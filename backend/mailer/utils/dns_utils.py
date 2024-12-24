@@ -9,7 +9,7 @@ logger = logging.getLogger('mailer')
 
 class DNSUtils:
     @staticmethod
-    def check_mx_record(domain: str) -> Tuple[bool, Optional[List[str]]]:
+    def check_mx_record(domain: str) -> Tuple[bool, Optional[list[str]]]:
         """Проверка MX записей домена"""
         try:
             mx_records = dns.resolver.resolve(domain, 'MX')

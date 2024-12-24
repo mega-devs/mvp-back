@@ -19,11 +19,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Создаем пользователя для приложения
 RUN useradd -m appuser && \
     chown -R appuser:appuser /app
-
-# Копируем entrypoint и устанавливаем права
-COPY --chown=appuser:appuser entrypoint.sh .
-RUN dos2unix entrypoint.sh && \
-    chmod +x entrypoint.sh
+    
+# Copy entrypoint.sh before switching users
+COPY entrypoint.sh /app/
+RUN chmod +x /app/entrypoint.sh
 
 # Копируем остальные файлы проекта
 COPY --chown=appuser:appuser . .

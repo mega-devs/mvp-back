@@ -147,7 +147,7 @@ class SMTPService:
 
 class DNSUtils:
     @staticmethod
-    def check_mx_record(domain: str) -> Tuple[bool, Optional[List[str]]]:
+    def check_mx_record(domain: str) -> Tuple[bool, Optional[list[str]]]:
         """
         Check the MX records for the given domain.
 
