@@ -44,6 +44,7 @@ from .utils.security import SecurityUtils
 
 logger = logging.getLogger('mailer')
 
+
 class LoginView(TokenObtainPairView):
     serializer_class = LoginSerializer
     permission_classes = []
@@ -52,15 +53,7 @@ class LoginView(TokenObtainPairView):
         tags=['authentication'],
         summary='Вход в систему',
         description='Аутентификация пользователя и получение JWT токенов',
-        responses={
-            200: {
-                'type': 'object',
-                'properties': {
-                    'access': {'type': 'string', 'description': 'Access token'},
-                    'refresh': {'type': 'string', 'description': 'Refresh token'}
-                }
-            }
-        }
+        responses={200: LoginSerializer}
     )
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -81,6 +74,7 @@ class LoginView(TokenObtainPairView):
             {'error': 'Invalid credentials'}, 
             status=status.HTTP_401_UNAUTHORIZED
         )
+    
 
 class RegisterView(generics.CreateAPIView):
     """User registration endpoint"""
@@ -93,13 +87,7 @@ class RegisterView(generics.CreateAPIView):
         operation_id='auth_register',
         request_body=RegisterSerializer,
         responses={
-            201: {
-                'type': 'object',
-                'properties': {
-                    'access': {'type': 'string', 'description': 'Access token'},
-                    'refresh': {'type': 'string', 'description': 'Refresh token'}
-                }
-            },
+            201: LoginSerializer,
             400: 'Ошибка валидации'
         },
         operation_description='Создание нового пользователя в системе',
@@ -109,6 +97,7 @@ class RegisterView(generics.CreateAPIView):
     )
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
+
 
 class SessionListView(generics.ListCreateAPIView):
     """List and create sessions"""
@@ -132,7 +121,7 @@ class SessionListView(generics.ListCreateAPIView):
     @swagger_auto_schema(
         tags=['sessions'],
         description='Создание новой сессии',
-        request=SessionSerializer,
+        request_body=SessionSerializer,
         responses={201: SessionSerializer},
     )
     def create(self, request, *args, **kwargs):
@@ -152,6 +141,7 @@ class SessionListView(generics.ListCreateAPIView):
             
         logger.info(f'Session {session.name} added successfully')
 
+
 class SessionDetailView(generics.DestroyAPIView):
     """Delete session"""
     serializer_class = SessionSerializer
@@ -159,10 +149,16 @@ class SessionDetailView(generics.DestroyAPIView):
     queryset = Session.objects.all()
     lookup_field = 'name'
 
+    @swagger_auto_schema(
+        tags=['sessions'],
+        description='Удаление сессии',
+        responses={204: SessionSerializer}
+    )
     def perform_destroy(self, instance):
         Setting.objects.filter(session=instance.name).delete()
         super().perform_destroy(instance)
         logger.info(f'Session {instance.name} deleted successfully')
+        
 
 class MaterialListView(generics.ListCreateAPIView):
     """List and create materials"""
@@ -182,28 +178,7 @@ class MaterialListView(generics.ListCreateAPIView):
             ),
         ],
         responses={
-            200: openapi.Response(
-                description='Список материалов',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_ARRAY,
-                    items=openapi.Schema(
-                        type=openapi.TYPE_OBJECT,
-                        properties={
-                            'id': openapi.Schema(type=openapi.TYPE_INTEGER),
-                            'data': openapi.Schema(type=openapi.TYPE_OBJECT)
-                        }
-                    )
-                )
-            ),
-            400: openapi.Response(
-                description='Ошибка в параметрах',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
-            )
+            200: MaterialSerializer(many=True)
         }
     )
     def get_serializer_class(self):
@@ -262,6 +237,7 @@ class MaterialListView(generics.ListCreateAPIView):
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
+
 class TemplateView(generics.CreateAPIView, generics.UpdateAPIView):
     """Create and update templates"""
     serializer_class = TemplateSerializer
@@ -276,6 +252,7 @@ class TemplateView(generics.CreateAPIView, generics.UpdateAPIView):
         template = serializer.save()
         logger.info(f'Template {template.id} updated successfully')
 
+
 class LogListView(generics.ListCreateAPIView):
     """List and create logs"""
     serializer_class = LogSerializer
@@ -289,10 +266,18 @@ class LogListView(generics.ListCreateAPIView):
             query['type'] = log_type
         return Log.objects.filter(**query).order_by('-created_at')[:100]
 
+
 class CheckView(generics.CreateAPIView):
     """Check various components (SMTP, IMAP, proxy, domain)"""
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        responses={
+            200: openapi.Response("Success"),
+            400: openapi.Response("Bad Request"),
+            500: openapi.Response("Internal Server Error")
+        }
+    )
     def create(self, request, *args, **kwargs):
         check_type = kwargs.get('type')
         if not utils.validate(request.data, ['session', 'ids']):
@@ -326,6 +311,7 @@ class CheckView(generics.CreateAPIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
 class MailingView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = MailingRequestSerializer
@@ -337,19 +323,7 @@ class MailingView(APIView):
         description='Запуск процесса рассылки',
         request_body=MailingRequestSerializer,
         responses={
-            200: openapi.Response(
-                description='Рассылка запущена',
-                schema=MailingResponseSerializer
-            ),
-            400: openapi.Response(
-                description='Ошибка в параметрах',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
-            )
+            200: MailingResponseSerializer,
         }
     )
     def post(self, request):
@@ -385,6 +359,7 @@ class MailingView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
 class MaterialCheckView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = MaterialCheckSerializer
@@ -396,24 +371,7 @@ class MaterialCheckView(APIView):
         description='Запуск проверки SMTP, прокси или других материалов',
         request_body=MaterialCheckSerializer,
         responses={
-            200: openapi.Response(
-                description='Проверка запущена',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'status': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
-            ),
-            400: openapi.Response(
-                description='Ошибка в параметрах',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
-            )
+            200: MailingResponseSerializer,
         }
     )
     def post(self, request):
@@ -437,6 +395,7 @@ class MaterialCheckView(APIView):
 
         return Response({'status': 'check started'})
 
+
 class LogView(APIView):
     """Управление логами"""
     permission_classes = [IsAuthenticated]
@@ -457,19 +416,7 @@ class LogView(APIView):
             ),
         ],
         responses={
-            200: openapi.Response(
-                description='Список логов',
-                schema=LogSerializer(many=True)
-            ),
-            404: openapi.Response(
-                description='Сессия не найдена',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
-            )
+            200: LogSerializer(many=True),
         }
     )
     def get(self, request, session):
@@ -483,24 +430,7 @@ class LogView(APIView):
         description='Очистка логов для сессии',
         request_body=LogClearRequestSerializer,
         responses={
-            200: openapi.Response(
-                description='Успешно',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'status': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
-            ),
-            400: openapi.Response(
-                description='Ошибка',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
-            )
+            200: MailingResponseSerializer,
         }
     )
     def delete(self, request, session):
@@ -508,6 +438,7 @@ class LogView(APIView):
         serializer.is_valid(raise_exception=True)
         Log.objects.filter(session=session).delete()
         return Response({'status': 'success'})
+
 
 class MassMailingView(APIView):
     """Управление массовой рассылкой"""
@@ -521,15 +452,6 @@ class MassMailingView(APIView):
         request_body=MassMailingRequestSerializer,
         responses={
             200: MailingResponseSerializer,
-            400: openapi.Response(
-                description='Неверные параметры',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
-            )
         }
     )
     def post(self, request):
@@ -549,6 +471,7 @@ class MassMailingView(APIView):
             'status': 'success',
             'message': 'mass mailing started'
         })
+    
 
 class SettingsView(APIView):
     """Управление настройками"""
@@ -572,15 +495,6 @@ class SettingsView(APIView):
                 description="Настройки сессии",
                 schema=SettingSerializer(many=True)
             ),
-            404: openapi.Response(
-                description='Сессия не найдена',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
-            )
         }
     )
     def get(self, request, session):
@@ -595,15 +509,6 @@ class SettingsView(APIView):
         request_body=SettingSerializer,
         responses={
             200: SettingSerializer,
-            400: openapi.Response(
-                description='Неверные параметры',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
-            )
         }
     )
     def put(self, request, session):
@@ -616,6 +521,7 @@ class SettingsView(APIView):
         serializer.save()
         return Response(serializer.data)
 
+
 class ServerTimeView(APIView):
     """Получение времени сервера"""
     permission_classes = []
@@ -626,7 +532,7 @@ class ServerTimeView(APIView):
         description='Получение текущего времени сервера',
         responses={
             200: openapi.Response(
-                description='Текущее время сервера',
+                description="Server time",
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
@@ -637,11 +543,11 @@ class ServerTimeView(APIView):
                     }
                 )
             )
-        }
-    )
+        }    )
     def get(self, request):
         from django.utils import timezone
         return Response({'server_time': timezone.now().isoformat()})
+
 
 class SystemStatusView(APIView):
     """API endpoint для мониторинга состояния системы"""
@@ -653,7 +559,7 @@ class SystemStatusView(APIView):
         description='Получение текущего статуса системы',
         responses={
             200: openapi.Response(
-                description='Успешный ответ',
+                description="System status",
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
@@ -670,7 +576,7 @@ class SystemStatusView(APIView):
                 )
             ),
             503: openapi.Response(
-                description='Сервис недоступен',
+                description="Error response",
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
@@ -678,8 +584,7 @@ class SystemStatusView(APIView):
                     }
                 )
             )
-        }
-    )
+        }    )
     def get(self, request):
         status_info = {
             'status': 'healthy',
@@ -690,6 +595,7 @@ class SystemStatusView(APIView):
             }
         }
         return Response(status_info)
+
 
 class FileUploadView(APIView):
     """Загрузка файлов с материалами"""
@@ -725,25 +631,18 @@ class FileUploadView(APIView):
             )
         ],
         responses={
-            200: openapi.Response(
-                description='Файл обработан',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'total': openapi.Schema(type=openapi.TYPE_INTEGER),
-                        'processed': openapi.Schema(type=openapi.TYPE_INTEGER),
-                        'failed': openapi.Schema(type=openapi.TYPE_INTEGER)
-                    }
-                )
+            200: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'success': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                    'message': openapi.Schema(type=openapi.TYPE_STRING)
+                }
             ),
-            400: openapi.Response(
-                description='Ошибка в параметрах',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
+            400: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'error': openapi.Schema(type=openapi.TYPE_STRING)
+                }
             )
         }
     )
@@ -773,6 +672,7 @@ class FileUploadView(APIView):
                 {'error': str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
 
 class ExportView(APIView):
     """Экспорт данных"""
@@ -806,7 +706,6 @@ class ExportView(APIView):
                     format='binary'
                 )
             ),
-            400: openapi.Response(description='Ошибка в параметрах'),
         }
     )
     def get(self, request, type, session):
@@ -837,6 +736,7 @@ class ExportView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
 class IPBlacklistViewSet(viewsets.ModelViewSet):
     """
     API endpoint для управления черным списком IP
@@ -851,7 +751,15 @@ class IPBlacklistViewSet(viewsets.ModelViewSet):
         description='Управление заблокированными IP адресами',
         responses={
             200: IPBlacklistSerializer(many=True),
-            401: {'type': 'object', 'properties': {'error': {'type': 'string'}}}
+            401: openapi.Response(
+                description='Не авторизован',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            )
         }
     )
     def list(self, request):
@@ -860,16 +768,61 @@ class IPBlacklistViewSet(viewsets.ModelViewSet):
     @swagger_auto_schema(
         tags=['security'],
         summary='Добавить IP в черный список',
-        request=IPBlacklistSerializer,
-        responses={201: IPBlacklistSerializer}
+        request_body=IPBlacklistSerializer,
+        responses={
+            201: IPBlacklistSerializer,
+            400: openapi.Response(
+                description='Неверные данные',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            )
+        }
     )
     def create(self, request):
         return super().create(request)
+
 
 class SMTPCheckView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [CheckRateThrottle]
 
+    @swagger_auto_schema(
+        tags=['smtp'],
+        summary='Check SMTP',
+        responses={
+            200: openapi.Response(
+                description='Task started successfully',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'task_id': openapi.Schema(type=openapi.TYPE_STRING),
+                        'status': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            ),
+            404: openapi.Response(
+                description='Not found',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            ),
+            500: openapi.Response(
+                description='Internal server error',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            )
+        }    )
     @cache_result('smtp_check', timeout=60*15)
     def check_smtp(self, smtp_id, proxy_id=None):
         try:
@@ -900,6 +853,39 @@ class ProxyCheckView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [CheckRateThrottle]
 
+    @swagger_auto_schema(
+        tags=['proxy'],
+        summary='Check Proxy',
+        responses={
+            200: openapi.Response(
+                description='Success',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'task_id': openapi.Schema(type=openapi.TYPE_STRING),
+                        'status': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            ),
+            404: openapi.Response(
+                description='Not found',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            ),
+            500: openapi.Response(
+                description='Internal server error',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            )
+        }    )
     @cache_result('proxy_check', timeout=60*15)
     def check_proxy(self, proxy_id):
         try:
@@ -925,6 +911,7 @@ class ProxyCheckView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
 # SMTP Views
 class SMTPListView(generics.ListAPIView):
     """API endpoint для получения списка SMTP серверов"""
@@ -937,15 +924,6 @@ class SMTPListView(generics.ListAPIView):
         description='Получение списка всех SMTP серверов',
         responses={
             200: SMTPSerializer(many=True),
-            401: openapi.Response(
-                description='Не авторизован',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
-            )
         }
     )
     def get(self, request):
@@ -965,15 +943,6 @@ class SMTPCreateView(generics.CreateAPIView):
         request_body=SMTPSerializer,
         responses={
             201: SMTPSerializer,
-            400: openapi.Response(
-                description='Неверные данные',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
-            )
         }
     )
     def post(self, request, *args, **kwargs):
@@ -994,6 +963,7 @@ class SMTPDeleteView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated]
     queryset = SMTP.objects.all()
 
+
 # Proxy Views
 class ProxyListCreateView(APIView):
     """API endpoint для управления прокси серверами"""
@@ -1005,15 +975,6 @@ class ProxyListCreateView(APIView):
         description='Получение списка всех прокси серверов',
         responses={
             200: ProxySerializer(many=True),
-            401: openapi.Response(
-                description='Не авторизован',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
-            )
         }
     )
     def get(self, request):
@@ -1028,15 +989,6 @@ class ProxyListCreateView(APIView):
         request_body=ProxySerializer,
         responses={
             201: ProxySerializer,
-            400: openapi.Response(
-                description='Неверные данные',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
-            )
         }
     )
     def post(self, request):
@@ -1045,6 +997,7 @@ class ProxyListCreateView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class ProxyDetailView(APIView):
     """API endpoint для работы с отдельным прокси сервером"""
@@ -1062,15 +1015,6 @@ class ProxyDetailView(APIView):
         description='Получение информации о конкретном прокси сервере',
         responses={
             200: ProxySerializer,
-            404: openapi.Response(
-                description='Прокси не найден',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
-            )
         }
     )
     def get(self, request, pk):
@@ -1086,7 +1030,7 @@ class ProxyDetailView(APIView):
         responses={
             200: ProxySerializer,
             400: openapi.Response(
-                description='Неверные данные',
+                description='Bad Request',
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
@@ -1095,7 +1039,7 @@ class ProxyDetailView(APIView):
                 )
             ),
             404: openapi.Response(
-                description='Прокси не найден',
+                description='Not Found',
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
@@ -1103,8 +1047,7 @@ class ProxyDetailView(APIView):
                     }
                 )
             )
-        }
-    )
+        }    )
     def put(self, request, pk):
         proxy = self.get_object(pk)
         serializer = ProxySerializer(proxy, data=request.data)
@@ -1119,11 +1062,11 @@ class ProxyDetailView(APIView):
         description='Удаление прокси сервера',
         responses={
             204: openapi.Response(
-                description='Прокси успешно удален',
+                description='No Content',
                 schema=openapi.Schema(type=openapi.TYPE_OBJECT)
             ),
             404: openapi.Response(
-                description='Прокси не найден',
+                description='Not Found',
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
@@ -1131,12 +1074,12 @@ class ProxyDetailView(APIView):
                     }
                 )
             )
-        }
-    )
+        }    )
     def delete(self, request, pk):
         proxy = self.get_object(pk)
         proxy.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class ProxyCheckView(APIView):
     """API endpoint для проверки прокси сервера"""
@@ -1183,6 +1126,7 @@ class ProxyCheckView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+
 # Monitoring Views
 class MetricsView(APIView):
     """API endpoint для получения метрик Prometheus"""
@@ -1197,7 +1141,7 @@ class MetricsView(APIView):
                 description='Метрики в формате Prometheus',
                 schema=openapi.Schema(
                     type=openapi.TYPE_STRING,
-                    format='binary'
+                    description='Raw Prometheus metrics data'
                 )
             )
         }
