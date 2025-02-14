@@ -51,8 +51,8 @@ class LoginView(TokenObtainPairView):
 
     @swagger_auto_schema(
         tags=['authentication'],
-        summary='Вход в систему',
-        description='Аутентификация пользователя и получение JWT токенов',
+        summary='Login to system',
+        description='Authenticate user and get JWT tokens',
         responses={200: LoginSerializer}
     )
     def post(self, request, *args, **kwargs):
@@ -88,10 +88,10 @@ class RegisterView(generics.CreateAPIView):
         request_body=RegisterSerializer,
         responses={
             201: LoginSerializer,
-            400: 'Ошибка валидации'
+            400: 'Validation error'
         },
-        operation_description='Создание нового пользователя в системе',
-        operation_summary='Регистрация пользователя',
+        operation_description='Create new user in system',
+        operation_summary='User registration',
         request_body_required=True,
         security=[],
     )
@@ -112,7 +112,7 @@ class SessionListView(generics.ListCreateAPIView):
 
     @swagger_auto_schema(
         tags=['sessions'],
-        description='Получение списка сессий',
+        description='Get list of sessions',
         responses={200: SessionSerializer(many=True)},
     )
     def list(self, request, *args, **kwargs):
@@ -120,7 +120,7 @@ class SessionListView(generics.ListCreateAPIView):
 
     @swagger_auto_schema(
         tags=['sessions'],
-        description='Создание новой сессии',
+        description='Create new session',
         request_body=SessionSerializer,
         responses={201: SessionSerializer},
     )
@@ -151,7 +151,7 @@ class SessionDetailView(generics.DestroyAPIView):
 
     @swagger_auto_schema(
         tags=['sessions'],
-        description='Удаление сессии',
+        description='Delete session',
         responses={204: SessionSerializer}
     )
     def perform_destroy(self, instance):
@@ -166,13 +166,13 @@ class MaterialListView(generics.ListCreateAPIView):
     
     @swagger_auto_schema(
         tags=['materials'],
-        summary='Список материалов',
-        description='Получение списка материалов',
+        summary='List of materials',
+        description='Get list of materials',
         manual_parameters=[
             openapi.Parameter(
                 'type',
                 openapi.IN_PATH,
-                description='Тип материала',
+                description='Material type',
                 type=openapi.TYPE_STRING,
                 required=True,
             ),
@@ -319,19 +319,19 @@ class MailingView(APIView):
 
     @swagger_auto_schema(
         tags=['mailing'],
-        summary='Запуск рассылки',
-        description='Запуск процесса рассылки',
+        summary='Start mailing',
+        description='Start the mailing process',
         request_body=MailingRequestSerializer,
         responses={
             200: MailingResponseSerializer,
         }
     )
     def post(self, request):
-        # Валидация заголовков
+        # Validate headers
         headers = SecurityUtils.validate_headers(request.headers)
         
         try:
-            # Санитизация HTML в сообщении
+            # Sanitize HTML in message
             if 'message' in request.data:
                 request.data['message'] = SecurityUtils.sanitize_html(request.data['message'])
             
@@ -367,8 +367,8 @@ class MaterialCheckView(APIView):
 
     @swagger_auto_schema(
         tags=['materials'],
-        summary='Проверка материалов',
-        description='Запуск проверки SMTP, прокси или других материалов',
+        summary='Check materials',
+        description='Start checking SMTP, proxy or other materials',
         request_body=MaterialCheckSerializer,
         responses={
             200: MailingResponseSerializer,
@@ -384,33 +384,33 @@ class MaterialCheckView(APIView):
         if material_type == 'smtp':
             smtps = SMTP.objects.filter(session=session)
             for smtp in smtps:
-                # Асинхронная проверка через Celery
+                # Async check via Celery
                 task = check_smtp_task.delay(smtp.id)
         
         elif material_type == 'proxy':
             proxies = Proxy.objects.filter(session=session)
             for proxy in proxies:
-                # Асинхронная проверка через Celery
+                # Async check via Celery
                 task = check_proxy_task.delay(proxy.id)
 
         return Response({'status': 'check started'})
 
 
 class LogView(APIView):
-    """Управление логами"""
+    """Log management"""
     permission_classes = [IsAuthenticated]
     serializer_class = LogSerializer
     clear_serializer_class = LogClearRequestSerializer
 
     @swagger_auto_schema(
         tags=['logs'],
-        summary='Получение логов',
-        description='Получение логов сессии',
+        summary='Get logs',
+        description='Get session logs',
         manual_parameters=[
             openapi.Parameter(
                 'session',
                 openapi.IN_PATH,
-                description='ID сессии',
+                description='Session ID',
                 type=openapi.TYPE_STRING,
                 required=True,
             ),
@@ -426,8 +426,8 @@ class LogView(APIView):
 
     @swagger_auto_schema(
         tags=['logs'],
-        summary='Очистка логов',
-        description='Очистка логов для сессии',
+        summary='Clear logs',
+        description='Clear logs for session',
         request_body=LogClearRequestSerializer,
         responses={
             200: MailingResponseSerializer,
@@ -441,14 +441,14 @@ class LogView(APIView):
 
 
 class MassMailingView(APIView):
-    """Управление массовой рассылкой"""
+    """Mass mailing management"""
     permission_classes = [IsAuthenticated]
     serializer_class = MassMailingRequestSerializer
 
     @swagger_auto_schema(
         tags=['mailing'],
-        summary='Запуск массовой рассылки',
-        description='Запуск процесса массовой рассылки',
+        summary='Start mass mailing',
+        description='Start mass mailing process',
         request_body=MassMailingRequestSerializer,
         responses={
             200: MailingResponseSerializer,
@@ -474,25 +474,25 @@ class MassMailingView(APIView):
     
 
 class SettingsView(APIView):
-    """Управление настройками"""
+    """Settings management"""
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         tags=['settings'],
-        summary='Получение настроек',
-        description='Получение настроек для сессии',
+        summary='Get settings',
+        description='Get settings for session',
         manual_parameters=[
             openapi.Parameter(
                 'session',
                 openapi.IN_PATH,
-                description='Имя сессии',
+                description='Session name',
                 type=openapi.TYPE_STRING,
                 required=True,
             ),
         ],
         responses={
             200: openapi.Response(
-                description="Настройки сессии",
+                description="Session settings",
                 schema=SettingSerializer(many=True)
             ),
         }
@@ -504,8 +504,8 @@ class SettingsView(APIView):
 
     @swagger_auto_schema(
         tags=['settings'],
-        summary='Обновление настроек',
-        description='Обновление настроек д��я сессии',
+        summary='Update settings',
+        description='Update settings for session',
         request_body=SettingSerializer,
         responses={
             200: SettingSerializer,
@@ -523,13 +523,13 @@ class SettingsView(APIView):
 
 
 class ServerTimeView(APIView):
-    """Получение времени сервера"""
+    """Get server time"""
     permission_classes = []
 
     @swagger_auto_schema(
         tags=['system'],
-        summary='Время сервера',
-        description='Получение текущего времени сервера',
+        summary='Server time',
+        description='Get current server time',
         responses={
             200: openapi.Response(
                 description="Server time",
@@ -550,13 +550,13 @@ class ServerTimeView(APIView):
 
 
 class SystemStatusView(APIView):
-    """API endpoint для мониторинга состояния системы"""
+    """API endpoint for monitoring system status"""
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         tags=['monitoring'],
-        summary='Статус системы',
-        description='Получение текущего статуса системы',
+        summary='System status',
+        description='Get current system status',
         responses={
             200: openapi.Response(
                 description="System status",
@@ -598,28 +598,28 @@ class SystemStatusView(APIView):
 
 
 class FileUploadView(APIView):
-    """Загрузка файлов с материалами"""
+    """File upload for materials"""
     permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
     
     @swagger_auto_schema(
         tags=['files'],
-        summary='Загрузка файла',
-        description='Загрузка файла с материалами (базы, SMTP, прокси)',
+        summary='Upload file',
+        description='Upload file with materials (bases, SMTP, proxy)',
         manual_parameters=[
             openapi.Parameter(
                 'file',
                 openapi.IN_FORM,
                 type=openapi.TYPE_FILE,
                 required=True,
-                description='Файл для загрузки'
+                description='File to upload'
             ),
             openapi.Parameter(
                 'session',
                 openapi.IN_FORM,
                 type=openapi.TYPE_STRING,
                 required=True,
-                description='ID сессии'
+                description='Session ID'
             ),
             openapi.Parameter(
                 'type',
@@ -627,7 +627,7 @@ class FileUploadView(APIView):
                 type=openapi.TYPE_STRING,
                 required=True,
                 enum=['base', 'smtp', 'proxy'],
-                description='Тип материала'
+                description='Material type'
             )
         ],
         responses={
@@ -651,17 +651,17 @@ class FileUploadView(APIView):
         session = request.POST.get('session')
         
         try:
-            # Валидация файла
+            # File validation
             SecurityUtils.validate_file_upload(file_obj)
             
-            # Сохранение во временный файл
+            # Save to temporary file
             content = file_obj.read().decode('utf-8')
             temp_path = FileService.save_temp_file(content)
             
             processor = FileService.get_processor(request.POST.get('type'))
             result = processor(content, session)
             
-            # Удаляем временный файл
+            # Remove temporary file
             os.remove(temp_path)
             
             return Response(result)
@@ -675,32 +675,32 @@ class FileUploadView(APIView):
 
 
 class ExportView(APIView):
-    """Экспорт данных"""
+    """Export data"""
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         tags=['export'],
-        summary='Экспорт данных',
-        description='Экспорт данных в CSV формат',
+        summary='Export data',
+        description='Export data to CSV format',
         manual_parameters=[
             openapi.Parameter(
                 'type',
                 openapi.IN_PATH,
-                description='Тип данных (bases/smtp/proxy/logs)',
+                description='Data type (bases/smtp/proxy/logs)',
                 type=openapi.TYPE_STRING,
                 required=True,
             ),
             openapi.Parameter(
                 'session',
                 openapi.IN_PATH,
-                description='Имя сессии',
+                description='Session name',
                 type=openapi.TYPE_STRING,
                 required=True,
             ),
         ],
         responses={
             200: openapi.Response(
-                description='CSV файл',
+                description='CSV file',
                 schema=openapi.Schema(
                     type=openapi.TYPE_STRING,
                     format='binary'
@@ -739,7 +739,7 @@ class ExportView(APIView):
 
 class IPBlacklistViewSet(viewsets.ModelViewSet):
     """
-    API endpoint для управления черным списком IP
+    API endpoint for managing IP blacklist
     """
     queryset = IPBlacklist.objects.all()
     serializer_class = IPBlacklistSerializer
@@ -747,12 +747,12 @@ class IPBlacklistViewSet(viewsets.ModelViewSet):
 
     @swagger_auto_schema(
         tags=['security'],
-        summary='Черный список IP',
-        description='Управление заблокированными IP адресами',
+        summary='IP blacklist',
+        description='Manage blocked IP addresses',
         responses={
             200: IPBlacklistSerializer(many=True),
             401: openapi.Response(
-                description='Не авторизован',
+                description='Unauthorized',
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
@@ -767,12 +767,12 @@ class IPBlacklistViewSet(viewsets.ModelViewSet):
 
     @swagger_auto_schema(
         tags=['security'],
-        summary='Добавить IP в черный список',
+        summary='Add IP to blacklist',
         request_body=IPBlacklistSerializer,
         responses={
             201: IPBlacklistSerializer,
             400: openapi.Response(
-                description='Неверные данные',
+                description='Invalid data',
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
@@ -793,6 +793,7 @@ class SMTPCheckView(APIView):
     @swagger_auto_schema(
         tags=['smtp'],
         summary='Check SMTP',
+        description='Check SMTP server connection and credentials',
         responses={
             200: openapi.Response(
                 description='Task started successfully',
@@ -829,7 +830,7 @@ class SMTPCheckView(APIView):
             smtp = SMTP.objects.get(id=smtp_id)
             proxy = Proxy.objects.get(id=proxy_id) if proxy_id else None
             
-            # Запускаем проверку в фоновом режиме
+            # Start background check
             task = check_smtp_task.delay(smtp.id, proxy.id if proxy else None)
             
             return Response({
@@ -856,6 +857,7 @@ class ProxyCheckView(APIView):
     @swagger_auto_schema(
         tags=['proxy'],
         summary='Check Proxy',
+        description='Check proxy server availability and functionality',
         responses={
             200: openapi.Response(
                 description='Success',
@@ -891,7 +893,7 @@ class ProxyCheckView(APIView):
         try:
             proxy = Proxy.objects.get(id=proxy_id)
             
-            # Запускаем проверку в фоновом режиме
+            # Start background check
             task = check_proxy_task.delay(proxy.id)
             
             return Response({
@@ -914,14 +916,14 @@ class ProxyCheckView(APIView):
 
 # SMTP Views
 class SMTPListView(generics.ListAPIView):
-    """API endpoint для получения списка SMTP серверов"""
+    """API endpoint for getting SMTP servers list"""
     serializer_class = SMTPSerializer
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         tags=['smtp'],
-        summary='Список SMTP серверов',
-        description='Получение списка всех SMTP серверов',
+        summary='List SMTP servers',
+        description='Get list of all SMTP servers',
         responses={
             200: SMTPSerializer(many=True),
         }
@@ -932,14 +934,14 @@ class SMTPListView(generics.ListAPIView):
         return Response(serializer.data)
 
 class SMTPCreateView(generics.CreateAPIView):
-    """Создание SMTP сервера"""
+    """Create SMTP server"""
     serializer_class = SMTPSerializer
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         tags=['smtp'],
-        summary='Создание SMTP',
-        description='Создание нового SMTP сервера',
+        summary='Create SMTP',
+        description='Create new SMTP server',
         request_body=SMTPSerializer,
         responses={
             201: SMTPSerializer,
@@ -966,13 +968,13 @@ class SMTPDeleteView(generics.DestroyAPIView):
 
 # Proxy Views
 class ProxyListCreateView(APIView):
-    """API endpoint для управления прокси серверами"""
+    """API endpoint for managing proxy servers"""
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         tags=['proxy'],
-        summary='Список прокси',
-        description='Получение списка всех прокси серверов',
+        summary='List proxies',
+        description='Get list of all proxy servers',
         responses={
             200: ProxySerializer(many=True),
         }
@@ -984,8 +986,8 @@ class ProxyListCreateView(APIView):
 
     @swagger_auto_schema(
         tags=['proxy'],
-        summary='Создание прокси',
-        description='Добавление нового прокси сервера',
+        summary='Create proxy',
+        description='Add new proxy server',
         request_body=ProxySerializer,
         responses={
             201: ProxySerializer,
@@ -1000,7 +1002,7 @@ class ProxyListCreateView(APIView):
 
 
 class ProxyDetailView(APIView):
-    """API endpoint для работы с отдельным прокси сервером"""
+    """API endpoint for managing individual proxy server"""
     permission_classes = [IsAuthenticated]
 
     def get_object(self, pk):
@@ -1011,8 +1013,8 @@ class ProxyDetailView(APIView):
 
     @swagger_auto_schema(
         tags=['proxy'],
-        summary='Получение прокси',
-        description='Получение информации о конкретном прокси сервере',
+        summary='Get proxy',
+        description='Get information about specific proxy server',
         responses={
             200: ProxySerializer,
         }
@@ -1024,8 +1026,8 @@ class ProxyDetailView(APIView):
 
     @swagger_auto_schema(
         tags=['proxy'],
-        summary='Обновление прокси',
-        description='Обновление информации о прокси сервере',
+        summary='Update proxy',
+        description='Update proxy server information',
         request_body=ProxySerializer,
         responses={
             200: ProxySerializer,
@@ -1058,8 +1060,8 @@ class ProxyDetailView(APIView):
 
     @swagger_auto_schema(
         tags=['proxy'],
-        summary='Удаление прокси',
-        description='Удаление прокси сервера',
+        summary='Delete proxy',
+        description='Delete proxy server',
         responses={
             204: openapi.Response(
                 description='No Content',
@@ -1082,17 +1084,17 @@ class ProxyDetailView(APIView):
 
 
 class ProxyCheckView(APIView):
-    """API endpoint для проверки прокси сервера"""
+    """API endpoint for checking proxy server"""
     permission_classes = [IsAuthenticated]
     throttle_classes = [CheckRateThrottle]
 
     @swagger_auto_schema(
         tags=['proxy'],
-        summary='Проверка прокси',
-        description='Запуск проверки работоспособности прокси сервера',
+        summary='Check proxy',
+        description='Start proxy server health check',
         responses={
             200: openapi.Response(
-                description='Проверка запущена',
+                description='Check started',
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
@@ -1102,7 +1104,7 @@ class ProxyCheckView(APIView):
                 )
             ),
             404: openapi.Response(
-                description='Прокси не найден',
+                description='Proxy not found',
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
@@ -1129,16 +1131,16 @@ class ProxyCheckView(APIView):
 
 # Monitoring Views
 class MetricsView(APIView):
-    """API endpoint для получения метрик Prometheus"""
+    """API endpoint for getting Prometheus metrics"""
     permission_classes = []
 
     @swagger_auto_schema(
         tags=['monitoring'],
-        summary='Prometheus метрики',
-        description='Получение метрик в формате Prometheus',
+        summary='Prometheus metrics',
+        description='Get metrics in Prometheus format',
         responses={
             200: openapi.Response(
-                description='Метрики в формате Prometheus',
+                description='Metrics in Prometheus format',
                 schema=openapi.Schema(
                     type=openapi.TYPE_STRING,
                     description='Raw Prometheus metrics data'
@@ -1152,4 +1154,3 @@ class MetricsView(APIView):
             metrics_page,
             content_type=CONTENT_TYPE_LATEST
         )
-
